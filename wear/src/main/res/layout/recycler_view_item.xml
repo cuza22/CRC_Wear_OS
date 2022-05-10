@@ -1,15 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/recycler_view_item"
-
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:padding="5dp"
+    android:background="@drawable/recycler_view_item_layout"
+    >
 
     <ImageView
         android:id="@+id/icon"
-        android:layout_width="35dp"
-        android:layout_height="35dp"
+        android:layout_width="25dp"
+        android:layout_height="25dp"
         android:layout_alignParentStart="true"
         android:layout_alignParentLeft="true"
         android:layout_centerVertical="true" />
@@ -21,6 +24,7 @@
         android:layout_centerVertical="true"
         android:layout_toEndOf="@+id/icon"
         android:layout_toRightOf="@+id/icon"
+        android:padding="3dp"
         android:text="transportation mode"
         android:textColor="#FFFFFF" />
 </RelativeLayout>

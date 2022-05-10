@@ -1,90 +1,105 @@
 package com.example.crc_wear_os
 
 import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.graphics.drawable.Drawable
 import android.os.Bundle
-import android.os.Parcel
-import android.os.Parcelable
+import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat.startActivity
 import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.RecyclerView.Adapter
 import androidx.wear.widget.WearableLinearLayoutManager
 import androidx.wear.widget.WearableRecyclerView
-import com.example.crc_wear_os.databinding.ActivityMainBinding
 
 class MainActivity : Activity() {
 
-    private lateinit var binding: ActivityMainBinding
+    private val TAG = "MainActivity"
+
+    val transportationModes : ArrayList<String> = arrayListOf("still", "walking", "manual", "motorized", "crutches", "walker")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_main_wear)
 
         var wearableRecyclerView : WearableRecyclerView = findViewById(R.id.recycler_view)
         wearableRecyclerView.apply {
             isEdgeItemsCenteringEnabled = true
-            layoutManager = WearableLinearLayoutManager(this@MainActivity)
-
-            val transportationModes : ArrayList<MenuItem> = listOfNotNull(
-                MenuItem("still"),
-                MenuItem("walking"),
-                MenuItem("manual"),
-                MenuItem("motorized"),
-                MenuItem("walker"),
-                MenuItem("crutches")
-            ) as ArrayList<MenuItem>
-
-            adapter = MenuAdapter() {
-                public override fun onItemClicked(position: Int) {
-                    switch (position) P
-                            case 0:
-                }
-            }
+            layoutManager = WearableLinearLayoutManager(this@MainActivity, CustomScrollingLayoutCallback())
+            adapter = MenuAdapter(context, transportationModes)
         }
 
     }
 
+    private class MenuAdapter(val context: Context, dataList : ArrayList<String>) :
+            RecyclerView.Adapter<MenuAdapter.ViewHolder>()  {
 
-}
+        var modeList : ArrayList<String> = dataList
+        val iconList : ArrayList<Int> = arrayListOf(
+            R.drawable.still_white,
+            R.drawable.walking_white,
+            R.drawable.manual_white,
+            R.drawable.motorized_white,
+            R.drawable.crutches_white,
+            R.drawable.walker_white
+        )
 
-private class MenuAdapter() : Adapter<MenuAdapter.ViewHolder>() {
-    var list : ArrayList<MenuItem> = ArrayList()
+        inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            val mode : TextView
+            val icon : ImageView
 
-    public AdapterCallback :
-    interface  {
-        fun onItemClicked
+            init {
+                mode = itemView.findViewById(R.id.mode)
+                icon = itemView.findViewById(R.id.icon)
+
+                itemView.setOnClickListener {
+                    val intent = Intent(context, Collecting::class.java).apply {
+                        putExtra("mode", mode.text.toString())
+                    }
+                    context.startActivity(intent)
+                }
+            }
+
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MenuAdapter.ViewHolder {
+            val view = LayoutInflater.from(context).inflate(R.layout.recycler_view_item, parent, false)
+            return ViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: MenuAdapter.ViewHolder, position: Int) {
+            holder.mode.setText(modeList[position])
+            holder.icon.setImageResource(iconList[position])
+        }
+
+        override fun getItemCount(): Int {
+            return modeList.count()
+        }
+
+
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MenuItem {
-        TODO("Not yet implemented")
+    private class CustomScrollingLayoutCallback : WearableLinearLayoutManager.LayoutCallback() {
+
+        private var progressToCenter : Float = 0f
+
+        override fun onLayoutFinished(child: View, parent: RecyclerView) {
+            child.apply {
+                val centerOffset = height.toFloat() / 2.0f / parent.height.toFloat()
+                val yRelativeToCenterOffset = y / parent.height + centerOffset
+
+                progressToCenter = Math.abs(0.5f - yRelativeToCenterOffset)
+                progressToCenter = Math.min(progressToCenter, 0.65f)
+
+                scaleX = 1 - progressToCenter
+                scaleY = 1 - progressToCenter
+            }
+        }
+
     }
-
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        TODO("Not yet implemented")
-    }
-
-    override fun getItemCount(): Int {
-        return list.size
-    }
-
-    private class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-
-    }
-
-}
-
-private class MenuItem(mode : String) {
-    val transportationModes = hashMapOf(
-        "still" to R.drawable.still,
-        "walking" to R.drawable.walking,
-        "manual" to R.drawable.manual,
-        "motorized" to R.drawable.motorized,
-        "walker" to R.drawable.walker,
-        "crutches" to R.drawable.crutches
-    )
-    val icon = transportationModes[mode]!!
-
 }

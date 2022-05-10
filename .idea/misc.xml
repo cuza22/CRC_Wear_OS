@@ -4,8 +4,11 @@
     <option name="filePathToZoomLevelMap">
       <map>
         <entry key="..\:/Users/user/AndroidStudioProjects/CRC_Wear_OS/mobile/src/main/res/layout/activity_main.xml" value="0.25" />
-        <entry key="..\:/Users/user/AndroidStudioProjects/CRC_Wear_OS/wear/src/main/res/layout/activity_main.xml" value="1.4046052631578947" />
-        <entry key="..\:/Users/user/AndroidStudioProjects/CRC_Wear_OS/wear/src/main/res/layout/recycler_view_item.xml" value="1.1002604166666667" />
+        <entry key="..\:/Users/user/AndroidStudioProjects/CRC_Wear_OS/wear/src/main/res/drawable/recycler_view_item_layout.xml" value="1.1777777777777778" />
+        <entry key="..\:/Users/user/AndroidStudioProjects/CRC_Wear_OS/wear/src/main/res/layout/activity_collecting.xml" value="0.836272040302267" />
+        <entry key="..\:/Users/user/AndroidStudioProjects/CRC_Wear_OS/wear/src/main/res/layout/activity_last_survey.xml" value="0.9222222222222223" />
+        <entry key="..\:/Users/user/AndroidStudioProjects/CRC_Wear_OS/wear/src/main/res/layout/activity_main.xml" value="0.9" />
+        <entry key="..\:/Users/user/AndroidStudioProjects/CRC_Wear_OS/wear/src/main/res/layout/recycler_view_item.xml" value="0.67" />
       </map>
     </option>
   </component>

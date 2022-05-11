@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.crc_wear_os">
 
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -37,6 +39,9 @@
             </intent-filter>
         </activity>
         <activity android:name=".Collecting"></activity>
+        <service android:name=".BackGroundCollecting"
+            android:enabled="true"
+            android:stopWithTask="false"></service>
     </application>
 
 </manifest>

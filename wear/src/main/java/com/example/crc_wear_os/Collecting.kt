@@ -35,8 +35,11 @@ class Collecting : Activity() {
 
     private lateinit var progressBar : ProgressBar
     private lateinit var countDownTimer : CountDownTimer
+
+    internal lateinit var intent : Intent
+
     private var remainingTime : Int = 0
-    private val DURATION_TIME : Int = 5
+    private val COLLECTING_TIME : Int = 5
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Log.d(TAG, "onCreate")
@@ -58,10 +61,10 @@ class Collecting : Activity() {
 
         /// count-down UI
         progressBar = findViewById(R.id.progress_bar)
-        remainingTime = DURATION_TIME
+        remainingTime = COLLECTING_TIME
         progressBar.progress = remainingTime
 
-        countDownTimer = object : CountDownTimer((DURATION_TIME * 1000).toLong(), 1000) {
+        countDownTimer = object : CountDownTimer((COLLECTING_TIME * 1000).toLong(), 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 remainingTime = (millisUntilFinished/1000).toInt()
                 progressBar.progress = remainingTime
@@ -77,6 +80,10 @@ class Collecting : Activity() {
 //                vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
             }
         }.start()
+
+        /// collecting thread
+        intent = Intent(applicationContext, BackGroundCollecting::class.java)
+        startService(intent)
     }
 
     private val AMBIENT_INTERVAL_MS: Long = TimeUnit.SECONDS.toMillis(1000)

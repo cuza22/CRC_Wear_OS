@@ -10,7 +10,9 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.hardware.lights.Light
 import android.location.Location
+import android.os.Binder
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
@@ -29,10 +31,33 @@ class BackGroundCollecting: Service() {
 
     private lateinit var gravityListener : SensorEventListener
     private lateinit var gravitySensor : Sensor
+    private lateinit var accelerometerListener : SensorEventListener
+    private lateinit var accelerometerSensor : Sensor
+    private lateinit var gyrometerListener: SensorEventListener
+    private lateinit var gyrometerSensor : Sensor
+    private lateinit var magnetometerListener: SensorEventListener
+    private lateinit var magnetometerSensor: Sensor
+    private lateinit var lightListener: SensorEventListener
+    private lateinit var lightSensor: Sensor
+    private lateinit var heartRateListener: SensorEventListener
+    private lateinit var heartRateSensor: Sensor
 
     var graX : Float = 0.0f
     var graY : Float = 0.0f
     var graZ : Float = 0.0f
+    var accX : Float = 0.0f
+    var accY : Float = 0.0f
+    var accZ : Float = 0.0f
+    var gyroX : Float = 0.0f
+    var gyroY : Float = 0.0f
+    var gyroZ : Float = 0.0f
+    var magX : Float = 0.0f
+    var magY : Float = 0.0f
+    var magZ : Float = 0.0f
+    var light : Float = 0.0f
+    var barometer : Float = 0.0f
+
+    var heartRate : Float = 0.0f
 
     // GPS
     private lateinit var fusedLocationClient : FusedLocationProviderClient
@@ -45,11 +70,13 @@ class BackGroundCollecting: Service() {
     var longitude : Double = 0.0
 
     // data
-    var remainedTime : Int = 660
-    val SENSOR_FREQUENCY : Int = 5
+    var remainingTime : Int = 15
+    val SENSOR_FREQUENCY : Int = 2
     val LOCATION_INTERVAL : Int = 5
 
     private lateinit var collectingThread : CollectingThread
+    var stop : Boolean = false
+
     private var sensorData : String = ""
     private var locationData : String = ""
 
@@ -57,11 +84,23 @@ class BackGroundCollecting: Service() {
     val mode : String = ""
     lateinit var cw : CSVWrite
 
+    // Binder
+    val binder = object : IMyAidlInterface.Stub() {
+        override fun getRemainingTime() : Int {
+            return remainingTime
+        }
+        override fun setStop(bool: Boolean) {
+            stop = bool
+        }
 
+    }
+    override fun onBind(intent: Intent): IBinder {
+        return binder
+    }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        Log.d(TAG, "onBind()")
-        TODO()
+    override fun onUnbind(intent: Intent?): Boolean {
+        stop = true
+        return super.onUnbind(intent)
     }
 
 
@@ -74,8 +113,27 @@ class BackGroundCollecting: Service() {
 
         gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
         gravityListener = GravityListener()
-
         sensorManager.registerListener(gravityListener, gravitySensor, SensorManager.SENSOR_DELAY_FASTEST)
+
+        accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        accelerometerListener = AccListener()
+        sensorManager.registerListener(accelerometerListener, accelerometerSensor, SensorManager.SENSOR_DELAY_FASTEST)
+
+        gyrometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        gyrometerListener = GyroListener()
+        sensorManager.registerListener(gyrometerListener, gyrometerSensor, SensorManager.SENSOR_DELAY_FASTEST)
+
+        magnetometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+        magnetometerListener = MagListener()
+        sensorManager.registerListener(magnetometerListener, magnetometerSensor, SensorManager.SENSOR_DELAY_FASTEST)
+
+        lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+        lightListener = LightListener()
+        sensorManager.registerListener(lightListener, lightSensor, SensorManager.SENSOR_DELAY_FASTEST)
+
+        heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
+        heartRateListener = HeartRateListener()
+        sensorManager.registerListener(heartRateListener,heartRateSensor, SensorManager.SENSOR_DELAY_FASTEST)
 
         // location
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(baseContext)
@@ -127,8 +185,9 @@ class BackGroundCollecting: Service() {
     }
 
     fun getMainData() {
-        Log.i(TAG, "Gra : $graX, $graY, $graZ")
-        sensorData.plus("$graX, $graY, $graZ")
+        Log.i(TAG, "Gra : $graX, $graY, $graZ   HR : $heartRate")
+        sensorData.plus("$graX, $graY, $graZ, $heartRate")
+
     }
     fun getLocationData() {
         Log.i(TAG, "lat: $latitude   lon: $longitude")
@@ -158,6 +217,79 @@ class BackGroundCollecting: Service() {
         }
     }
 
+    inner class AccListener : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent?) {
+            if (event != null) {
+                accX = event.values[0]
+                accY = event.values[1]
+                accZ = event.values[2]
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        }
+    }
+
+    inner class GyroListener : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent?) {
+            if (event != null) {
+                gyroX = event.values[0]
+                gyroY = event.values[1]
+                gyroZ = event.values[2]
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        }
+    }
+
+    inner class MagListener : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent?) {
+            if (event != null) {
+                magX = event.values[0]
+                magY = event.values[1]
+                magZ = event.values[2]
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        }
+    }
+
+    inner class LightListener : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent?) {
+            if (event != null) {
+                light = event.values[0]
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        }
+
+    }
+
+    inner class BaroListener : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent?) {
+            if (event != null) {
+                barometer = event.values[0]
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        }
+    }
+
+    inner class HeartRateListener : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent?) {
+            if (event != null) {
+                heartRate = event.values[0]
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        }
+
+    }
 
     inner class CollectingThread : Thread() {
         var stopCollecting : Boolean = false
@@ -174,7 +306,7 @@ class BackGroundCollecting: Service() {
                     if (second == SENSOR_FREQUENCY) {
                         second = 0
                         GPSsecond++
-                        remainedTime--
+                        remainingTime--
 
                         Log.i(TAG, sensorData)
                     }
@@ -184,7 +316,7 @@ class BackGroundCollecting: Service() {
                         GPSsecond = 0
                     }
 
-                    if (remainedTime == 0) {
+                    if (remainingTime == 0) {
                         stopCollecting = true
                     }
 
@@ -198,7 +330,7 @@ class BackGroundCollecting: Service() {
         }
     }
 
-    fun currentDate(): String {
+    private fun currentDate(): String {
         val calendar : Calendar = GregorianCalendar(Locale.KOREA)
         return "${calendar.get(YEAR)}_${calendar.get(MONTH)+1}_${calendar.get(DATE)}_${calendar.get(
             HOUR_OF_DAY)}_${calendar.get(MINUTE)}_${calendar.get(SECOND)}_$mode"

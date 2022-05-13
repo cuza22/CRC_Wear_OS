@@ -11,9 +11,10 @@ import java.io.IOException
 class CSVWrite {
     private val TAG : String = "CSVWrite"
 
-    fun writeCsv(data : String, fileName : String, dataType : String) {
-        lateinit var directory : File
+    lateinit var directory : File
+    lateinit var writer : FileWriter
 
+    fun writeCsv(data : String, fileName : String, dataType : String) {
         if (Build.VERSION.SDK_INT <= 29) {
             val dirPath : String = Environment.getExternalStorageDirectory().absolutePath + "/HCILabData"
             directory = File(dirPath)
@@ -23,7 +24,7 @@ class CSVWrite {
         }
 
         try {
-            val writer = FileWriter("$directory/$fileName _$dataType.csv")
+            writer = FileWriter("$directory/$fileName _$dataType.csv")
             try {
                 writer.write(data)
             } finally {

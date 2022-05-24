@@ -21,7 +21,7 @@ class MainActivity : Activity() {
 
     private val TAG = "MainActivity"
 
-    val transportationModes : ArrayList<String> = arrayListOf("still", "walking", "manual", "motorized", "crutches", "walker")
+    private val transportationModes : ArrayList<String> = arrayListOf("still", "walking", "manual", "motorized", "crutches", "walker")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,13 +50,10 @@ class MainActivity : Activity() {
         )
 
         inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val mode : TextView
-            val icon : ImageView
+            val mode : TextView = itemView.findViewById(R.id.mode)
+            val icon : ImageView = itemView.findViewById(R.id.icon)
 
             init {
-                mode = itemView.findViewById(R.id.mode)
-                icon = itemView.findViewById(R.id.icon)
-
                 itemView.setOnClickListener {
                     val intent = Intent(context, Collecting::class.java).apply {
                         putExtra("mode", mode.text.toString())
@@ -73,14 +70,13 @@ class MainActivity : Activity() {
         }
 
         override fun onBindViewHolder(holder: MenuAdapter.ViewHolder, position: Int) {
-            holder.mode.setText(modeList[position])
+            holder.mode.text = modeList[position]
             holder.icon.setImageResource(iconList[position])
         }
 
         override fun getItemCount(): Int {
             return modeList.count()
         }
-
 
     }
 

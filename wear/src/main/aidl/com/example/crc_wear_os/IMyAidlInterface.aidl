@@ -5,6 +5,4 @@ package com.example.crc_wear_os;
 
 interface IMyAidlInterface {
     int getRemainingTime();
-    void setStop(boolean bool);
-
 }

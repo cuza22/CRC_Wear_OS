@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.*
+import android.hardware.Sensor
 import android.location.LocationManager
 import android.media.Ringtone
 import android.media.RingtoneManager
@@ -20,7 +21,6 @@ class Collecting : Activity() {
     private val TAG = "Collecting"
 
 //    var locationManager : LocationManager = TODO()
-//    var connectivityManager : ConnectivityManager = TODO()
 
     private val AMBIENT_UPDATE_ACTION = "com.your.package.action.AMBIENT_UPDATE"
     private lateinit var ambientUpdateAlarmManager: AlarmManager
@@ -33,13 +33,30 @@ class Collecting : Activity() {
     internal lateinit var intent : Intent
     private lateinit var mode : String
 
-    private val COLLECTING_TIME : Int = 15
+    private val COLLECTING_TIME : Int = 5
     private var remainingTime : Int = COLLECTING_TIME
-    private var stop : Boolean = false
-    private lateinit var binder : IMyAidlInterface
+    private var stopCounting : Boolean = false
+
+//    private lateinit var service : BackGroundCollecting
+    var binder : IMyAidlInterface? = null
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binderService: IBinder?) {
+            Log.i(TAG, "onServiceConnected")
+            binder = IMyAidlInterface.Stub.asInterface(binderService)
+//            val binder = service as BackGroundCollecting.LocalBinder
+//            service = binder.getService()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            Log.i(TAG, "onServiceDisconnected")
+            binder = null
+        }
+
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Log.d(TAG, "onCreate")
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_collecting)
 
@@ -77,7 +94,9 @@ class Collecting : Activity() {
         intent = Intent(applicationContext, BackGroundCollecting::class.java).apply {
             setPackage("com.example.crc_wear_os")
             putExtra("mode", mode)
+
         }
+//        Log.d(TAG, "intent : $intent")
         startForegroundService(intent)
         startService(intent)
         bindService(intent, connection, BIND_AUTO_CREATE)
@@ -85,6 +104,17 @@ class Collecting : Activity() {
         // start counting thread (ends automatically)
         CountingThread().start()
     }
+
+//    override fun onStart() {
+//        Log.d(TAG, "onStart()")
+//        super.onStart()
+//
+//        Intent(this, BackGroundCollecting::class.java).also { intent ->
+//            bindService(intent, connection, Context.BIND_AUTO_CREATE)
+//        }
+//
+//        CountingThread().start()
+//    }
 
     private val AMBIENT_INTERVAL_MS: Long = TimeUnit.SECONDS.toMillis(1000)
     private fun refreshDisplayAndSetNextUpdate() {
@@ -99,27 +129,24 @@ class Collecting : Activity() {
         Log.d(TAG, "alarm: $triggerTimeMs")
     }
 
-    val connection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            binder = IMyAidlInterface.Stub.asInterface(service)
-        }
-
-        override fun onServiceDisconnected(name: ComponentName?) {
-        }
-
-    }
-
     override fun onDestroy() {
         super.onDestroy()
+        unbindService(connection)
         endCollecting()
     }
 
     private fun updateRemainingTimeUI() {
-        remainingTime = binder.getRemainingTime()
-        progressBar.progress = remainingTime
+        if (binder != null) {
+            remainingTime = binder!!.getRemainingTime()
+            progressBar.progress = remainingTime
+            Log.i(TAG, "UI remaining time : $remainingTime")
+        } else {
+            Log.e(TAG, "binder is null")
+        }
     }
 
     private fun endCollecting() {
+        Log.d(TAG, "endCollecting()")
         // stop the alarm
         ambientUpdateAlarmManager.cancel(ambientUpdatePendingIntent)
 
@@ -133,27 +160,30 @@ class Collecting : Activity() {
         startActivity(survey_intent)
 
         // finish this activity (collecting)
-        finish()
+//        finish()
     }
 
     // timer thread
     inner class CountingThread : Thread() {
         override fun run() {
             super.run()
+            Log.i(TAG, "CountingThread start")
 
-            while(!stop) {
+            while(!stopCounting) {
 
                 updateRemainingTimeUI()
 
                 try {
                     if (remainingTime == 0) {
-                        stop = true
+                        Log.i(TAG, "remaining time 0")
+
+                        stopCounting = true
                         // notification
                         val notification : Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
                         val ringtone = RingtoneManager.getRingtone(applicationContext, notification)
                         ringtone.play()
-                        val vibrator : Vibrator = getSystemService(VIBRATOR_MANAGER_SERVICE) as Vibrator
-                        vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+//                        val vibrator : Vibrator = getSystemService(VIBRATOR_MANAGER_SERVICE) as Vibrator
+//                        vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
 
                         // end collecting
                         endCollecting()

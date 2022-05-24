@@ -2,6 +2,7 @@ package com.example.crc_wear_os
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.PendingIntent.getActivity
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -39,6 +40,8 @@ class BackGroundCollecting: Service() {
     private lateinit var magnetometerSensor: Sensor
     private lateinit var lightListener: SensorEventListener
     private lateinit var lightSensor: Sensor
+    private lateinit var baroListener: SensorEventListener
+    private lateinit var baroSensor: Sensor
     private lateinit var heartRateListener: SensorEventListener
     private lateinit var heartRateSensor: Sensor
 
@@ -56,8 +59,7 @@ class BackGroundCollecting: Service() {
     var magZ : Float = 0.0f
     var light : Float = 0.0f
     var barometer : Float = 0.0f
-
-    var heartRate : Float = 0.0f
+    var heartRate : Int = 0
 
     // GPS
     private lateinit var fusedLocationClient : FusedLocationProviderClient
@@ -70,46 +72,46 @@ class BackGroundCollecting: Service() {
     var longitude : Double = 0.0
 
     // data
-    var remainingTime : Int = 15
-    val SENSOR_FREQUENCY : Int = 2
+    var remaining : Int = 5
+    val SENSOR_FREQUENCY : Int = 30
     val LOCATION_INTERVAL : Int = 5
 
     private lateinit var collectingThread : CollectingThread
-    var stop : Boolean = false
+    var stopCollecting : Boolean = false
 
-    private var sensorData : String = ""
-    private var locationData : String = ""
+    private var sensorData : String = "graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer, HR\n"
+    private var locationData : String = "latitude, longitude\n"
 
     // write
     val mode : String = ""
     lateinit var cw : CSVWrite
 
-    // Binder
-    val binder = object : IMyAidlInterface.Stub() {
-        override fun getRemainingTime() : Int {
-            return remainingTime
-        }
-        override fun setStop(bool: Boolean) {
-            stop = bool
-        }
 
+    private val binder = object : IMyAidlInterface.Stub() {
+        override fun getRemainingTime() : Int {
+            return remaining
+        }
     }
     override fun onBind(intent: Intent): IBinder {
         return binder
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
-        stop = true
+        stopCollecting = true
         return super.onUnbind(intent)
     }
-
 
     override fun onCreate() {
         Log.d(TAG, "onCreate()")
         super.onCreate()
 
+        // data write
+        cw = CSVWrite()
+
         // sensors
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+//        Log.d(TAG, "Type of Sensors: " + sensorManager.getSensorList(Sensor.TYPE_ALL))
 
         gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
         gravityListener = GravityListener()
@@ -130,6 +132,10 @@ class BackGroundCollecting: Service() {
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
         lightListener = LightListener()
         sensorManager.registerListener(lightListener, lightSensor, SensorManager.SENSOR_DELAY_FASTEST)
+
+        baroSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE)
+        baroListener = BaroListener()
+        sensorManager.registerListener(baroListener, baroSensor, SensorManager.SENSOR_DELAY_FASTEST)
 
         heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
         heartRateListener = HeartRateListener()
@@ -163,9 +169,6 @@ class BackGroundCollecting: Service() {
             ) != PackageManager.PERMISSION_GRANTED
         ) { return }
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
-
-        // data write
-        cw = CSVWrite()
     }
 
     override fun onDestroy() {
@@ -174,6 +177,12 @@ class BackGroundCollecting: Service() {
 
         // stop sensor listener
         sensorManager.unregisterListener(gravityListener)
+        sensorManager.unregisterListener(accelerometerListener)
+        sensorManager.unregisterListener(gyrometerListener)
+        sensorManager.unregisterListener(magnetometerListener)
+        sensorManager.unregisterListener(lightListener)
+        sensorManager.unregisterListener(heartRateListener)
+//        sensorManager.unregisterListener(heartBeatListener)
 
         // stop location listener
         fusedLocationClient.removeLocationUpdates(locationCallback)
@@ -185,13 +194,15 @@ class BackGroundCollecting: Service() {
     }
 
     fun getMainData() {
-        Log.i(TAG, "Gra : $graX, $graY, $graZ   HR : $heartRate")
-        sensorData.plus("$graX, $graY, $graZ, $heartRate")
+//        Log.i(TAG, "getMainData()")
+//        Log.i(TAG, "Gra : $graX, $graY, $graZ   HR : $heartRate")
+        sensorData += "$graX, $graY, $graZ, $accX, $accY, $accZ, $gyroX, $gyroY, $gyroZ, $magX, $magY, $magZ, $light, $barometer, $heartRate\n"
 
     }
     fun getLocationData() {
-        Log.i(TAG, "lat: $latitude   lon: $longitude")
-        locationData.plus("$latitude, $longitude")
+//        Log.i(TAG, "getLocationData()")
+//        Log.i(TAG, "lat: $latitude   lon: $longitude")
+        locationData += "$latitude, $longitude\n"
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -282,7 +293,7 @@ class BackGroundCollecting: Service() {
     inner class HeartRateListener : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent?) {
             if (event != null) {
-                heartRate = event.values[0]
+                heartRate = event.values[0].toInt()
             }
         }
 
@@ -291,10 +302,12 @@ class BackGroundCollecting: Service() {
 
     }
 
+
     inner class CollectingThread : Thread() {
-        var stopCollecting : Boolean = false
 
         override fun run() {
+            super.run()
+
             var second : Int = 0
             var GPSsecond : Int = 0
 
@@ -303,23 +316,32 @@ class BackGroundCollecting: Service() {
                 getMainData()
 
                 try {
+//                    Log.d(TAG, "CollectingThread is ${this.isAlive}")
+//                    Log.d(TAG, "second: $second   GPSsecond: $GPSsecond")
+
                     if (second == SENSOR_FREQUENCY) {
                         second = 0
                         GPSsecond++
-                        remainingTime--
+                        remaining--
 
-                        Log.i(TAG, sensorData)
+//                        Log.i(TAG, sensorData)
                     }
 
                     if (GPSsecond == LOCATION_INTERVAL) {
-                         getLocationData()
+                        getLocationData()
                         GPSsecond = 0
+
+//                        Log.i(TAG, locationData)
                     }
 
-                    if (remainingTime == 0) {
+                    if (remaining == 0) {
+                        Log.i(TAG, "remaining time 0")
+
                         stopCollecting = true
+
                     }
 
+                    Log.d(TAG, "remaining : $remaining")
                     sleep((1000/SENSOR_FREQUENCY).toLong())
 
                 } catch (e: Exception){
@@ -328,6 +350,7 @@ class BackGroundCollecting: Service() {
             }
 
         }
+
     }
 
     private fun currentDate(): String {

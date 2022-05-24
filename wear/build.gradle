@@ -35,5 +35,6 @@ dependencies {
     implementation 'androidx.wear:wear:1.2.0'
     implementation 'androidx.appcompat:appcompat:1.4.1'
     implementation 'com.google.android.gms:play-services-location:19.0.1'
+    implementation("androidx.health:health-connect-client:1.0.0-alpha01")
     wearApp project(":wear")
 }

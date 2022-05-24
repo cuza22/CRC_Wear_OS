@@ -10,5 +10,5 @@
         android:layout_height="match_parent"
         android:ems="10"
         android:inputType="textPersonName"
-        android:text="Test" />
+        android:text="Last View" />
 </LinearLayout>

@@ -14,6 +14,10 @@ class CSVWrite {
     lateinit var directory : File
     lateinit var writer : FileWriter
 
+    init {
+        Log.d(TAG, "init")
+    }
+
     fun writeCsv(data : String, fileName : String, dataType : String) {
         if (Build.VERSION.SDK_INT <= 29) {
             val dirPath : String = Environment.getExternalStorageDirectory().absolutePath + "/HCILabData"
@@ -23,8 +27,10 @@ class CSVWrite {
             directory = Environment.getExternalStoragePublicDirectory(DIRECTORY_DOCUMENTS)
         }
 
+        Log.i(TAG, "write CSV")
+
         try {
-            writer = FileWriter("$directory/$fileName _$dataType.csv")
+            writer = FileWriter("$directory/$fileName $dataType.csv")
             try {
                 writer.write(data)
             } finally {

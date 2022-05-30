@@ -72,8 +72,8 @@ class BackGroundCollecting: Service() {
     var longitude : Double = 0.0
 
     // data
-    var remaining : Int = 60
-    val SENSOR_FREQUENCY : Int = 1
+    var remaining : Int = 30
+    val SENSOR_FREQUENCY : Int = 50
     val LOCATION_INTERVAL : Int = 5
     val SLEEP_TIME : Long = (1000/SENSOR_FREQUENCY).toLong()
     var startTime : Long = 0
@@ -219,7 +219,7 @@ class BackGroundCollecting: Service() {
         getLocationData()
         // TODO()
         collectingThread = CollectingThread()
-        collectingThread.priority = Thread.MIN_PRIORITY
+        collectingThread.priority = Thread.MAX_PRIORITY
         collectingThread.start()
 
         return super.onStartCommand(intent, flags, startId)
@@ -351,6 +351,7 @@ class BackGroundCollecting: Service() {
                         remaining--
 
                         Log.d(TAG, "remaining: $remaining")
+//                        Log.d(TAG, "remain_system: " + (remaining - (System.currentTimeMillis()-startTime)/1000).toString())
 //                        Log.i(TAG, sensorData)
                     }
 
@@ -361,6 +362,7 @@ class BackGroundCollecting: Service() {
 //                        Log.i(TAG, locationData)
                     }
 
+//                    if (((System.currentTimeMillis()-startTime)/1000) > remaining) {
                     if (remaining == 0) {
                         Log.i(TAG, "remaining time 0")
 
@@ -370,8 +372,8 @@ class BackGroundCollecting: Service() {
                     }
 
 //                    Log.d(TAG, "remaining : $remaining")
-//                    sleep((1000/SENSOR_FREQUENCY).toLong())
                     sleep(SLEEP_TIME)
+//                    sleep(12)
 
                 } catch (e: Exception){
                     Log.e (TAG, e.toString())

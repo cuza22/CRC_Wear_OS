@@ -34,7 +34,7 @@ class Collecting : Activity() {
     internal lateinit var intent : Intent
     private lateinit var mode : String
 
-    private val COLLECTING_TIME : Int = 660
+    private val COLLECTING_TIME : Int = 30
     private var remainingTime : Int = COLLECTING_TIME
 
     private lateinit var countingThread: CountingThread
@@ -84,17 +84,17 @@ class Collecting : Activity() {
 //        // start counting thread (ends automatically) TODO()
 //        countingThread = CountingThread()
 //        countingThread.run()
-        thread(start = true){
-            var i = COLLECTING_TIME
-            while (i > 0) {
-                i--
-                runOnUiThread {
-                    remainingText.text = "$mode\n$i sec"
-                }
-                Log.d(TAG, "remaining UI : $i")
-                Thread.sleep(1000)
-            }
-        }
+//        thread(start = true){
+//            var i = COLLECTING_TIME
+//            while (i > 0) {
+//                i--
+//                runOnUiThread {
+//                    remainingText.text = "$mode\n$i sec"
+//                }
+//                Log.d(TAG, "remaining UI : $i")
+//                Thread.sleep(1000)
+//            }
+//        }
 
         // count-down UI
 //        progressBar = findViewById(R.id.progress_bar)

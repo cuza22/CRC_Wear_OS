@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.*
 import android.util.Log
 import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import java.util.concurrent.TimeUnit
 
@@ -27,15 +28,19 @@ class Collecting : Activity() {
     private lateinit var ambientUpdatePendingIntent: PendingIntent
     private lateinit var ambientUpdateBroadcastReceiver: BroadcastReceiver
 
-    private lateinit var progressBar : ProgressBar
-    private lateinit var countDownTimer : CountDownTimer
+//    private lateinit var progressBar : ProgressBar
+//    private lateinit var countDownTimer : CountDownTimer
+    private lateinit var remainingText : TextView
 
     internal lateinit var intent : Intent
     private lateinit var mode : String
 
-    private val COLLECTING_TIME : Int = 5
+    private val COLLECTING_TIME : Int = 30
     private var remainingTime : Int = COLLECTING_TIME
+
+    private lateinit var countingThread: CountingThread
     private var stopCounting : Boolean = false
+    var isBound = false
 
 //    private lateinit var service : BackGroundCollecting
     var binder : IMyAidlInterface? = null
@@ -43,8 +48,11 @@ class Collecting : Activity() {
         override fun onServiceConnected(name: ComponentName?, binderService: IBinder?) {
             Log.i(TAG, "onServiceConnected")
             binder = IMyAidlInterface.Stub.asInterface(binderService)
-//            val binder = service as BackGroundCollecting.LocalBinder
-//            service = binder.getService()
+
+            // start counting thread (ends automatically)
+            countingThread = CountingThread()
+            countingThread.priority = Thread.MAX_PRIORITY
+            countingThread.run()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -55,7 +63,7 @@ class Collecting : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        Log.d(TAG, "onCreate")
+        Log.d(TAG, "onCreate()")
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_collecting)
@@ -75,8 +83,10 @@ class Collecting : Activity() {
         }
 
         // count-down UI
-        progressBar = findViewById(R.id.progress_bar)
-        progressBar.progress = remainingTime
+//        progressBar = findViewById(R.id.progress_bar)
+//        progressBar.progress = remainingTime
+        remainingText = findViewById(R.id.remaining_time)
+        remainingText.text = "$remainingTime sec"
 
 //        countDownTimer = object : CountDownTimer((COLLECTING_TIME * 1000).toLong(), 1000) {
 //            override fun onTick(millisUntilFinished: Long) {
@@ -97,12 +107,12 @@ class Collecting : Activity() {
 
         }
 //        Log.d(TAG, "intent : $intent")
-        startForegroundService(intent)
+//        startForegroundService(intent)
         startService(intent)
-        bindService(intent, connection, BIND_AUTO_CREATE)
+        isBound = bindService(intent, connection, BIND_AUTO_CREATE)
 
-        // start counting thread (ends automatically)
-        CountingThread().start()
+//        // start counting thread (ends automatically)
+//        CountingThread().run()
     }
 
 //    override fun onStart() {
@@ -131,14 +141,23 @@ class Collecting : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        unbindService(connection)
+        if (isBound) { unbindService(connection) }
         endCollecting()
+
+        // start new activity
+        val survey_intent = Intent(applicationContext, LastSurvey::class.java)
+        survey_intent.putExtra("mode", mode)
+        startActivity(survey_intent)
+
+        // finish this activity (collecting)
+        finish()
     }
 
     private fun updateRemainingTimeUI() {
         if (binder != null) {
             remainingTime = binder!!.getRemainingTime()
-            progressBar.progress = remainingTime
+            remainingText.text = "$remainingTime sec"
+//            progressBar.progress = remainingTime
             Log.i(TAG, "UI remaining time : $remainingTime")
         } else {
             Log.e(TAG, "binder is null")
@@ -152,14 +171,15 @@ class Collecting : Activity() {
 
         // finish binding
         stopService(intent)
-        unbindService(connection)
+        if (isBound) { unbindService(connection) }
+        isBound = false
 
-        // start new activity
-        val survey_intent = Intent(applicationContext, LastSurvey::class.java)
-        survey_intent.putExtra("mode", mode)
-        startActivity(survey_intent)
-
-        // finish this activity (collecting)
+//        // start new activity
+//        val survey_intent = Intent(applicationContext, LastSurvey::class.java)
+//        survey_intent.putExtra("mode", mode)
+//        startActivity(survey_intent)
+//
+//        // finish this activity (collecting)
 //        finish()
     }
 
@@ -167,7 +187,7 @@ class Collecting : Activity() {
     inner class CountingThread : Thread() {
         override fun run() {
             super.run()
-            Log.i(TAG, "CountingThread start")
+            Log.i(TAG, "CountingThread run()")
 
             while(!stopCounting) {
 

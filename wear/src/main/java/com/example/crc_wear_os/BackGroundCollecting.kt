@@ -72,18 +72,18 @@ class BackGroundCollecting: Service() {
     var longitude : Double = 0.0
 
     // data
-    var remaining : Int = 5
-    val SENSOR_FREQUENCY : Int = 30
+    var remaining : Int = 30
+    val SENSOR_FREQUENCY : Int = 60
     val LOCATION_INTERVAL : Int = 5
 
     private lateinit var collectingThread : CollectingThread
     var stopCollecting : Boolean = false
 
-    private var sensorData : String = "graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer, HR\n"
+    private var sensorData : String = "year, month, day, hour, min, sec, ms, graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer, HR\n"
     private var locationData : String = "latitude, longitude\n"
 
     // write
-    val mode : String = ""
+    var mode : String = ""
     lateinit var cw : CSVWrite
 
 
@@ -106,6 +106,7 @@ class BackGroundCollecting: Service() {
         super.onCreate()
 
         // data write
+        var mode = ""
         cw = CSVWrite()
 
         // sensors
@@ -182,7 +183,6 @@ class BackGroundCollecting: Service() {
         sensorManager.unregisterListener(magnetometerListener)
         sensorManager.unregisterListener(lightListener)
         sensorManager.unregisterListener(heartRateListener)
-//        sensorManager.unregisterListener(heartBeatListener)
 
         // stop location listener
         fusedLocationClient.removeLocationUpdates(locationCallback)
@@ -195,21 +195,28 @@ class BackGroundCollecting: Service() {
 
     fun getMainData() {
 //        Log.i(TAG, "getMainData()")
-//        Log.i(TAG, "Gra : $graX, $graY, $graZ   HR : $heartRate")
-        sensorData += "$graX, $graY, $graZ, $accX, $accY, $accZ, $gyroX, $gyroY, $gyroZ, $magX, $magY, $magZ, $light, $barometer, $heartRate\n"
+        Log.i(TAG, "Gra : $graX, $graY, $graZ   HR : $heartRate")
+        sensorData += dataCollectedDate() + "$graX, $graY, $graZ, $accX, $accY, $accZ, $gyroX, $gyroY, $gyroZ, $magX, $magY, $magZ, $light, $barometer, $heartRate\n"
 
     }
     fun getLocationData() {
 //        Log.i(TAG, "getLocationData()")
-//        Log.i(TAG, "lat: $latitude   lon: $longitude")
-        locationData += "$latitude, $longitude\n"
+        Log.i(TAG, "lat: $latitude   lon: $longitude")
+        locationData += dataCollectedDate() + "$latitude, $longitude\n"
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand()")
+
+        if (intent != null) {
+            mode = intent.extras?.get("mode") as String
+            Log.d(TAG, "mode: $mode")
+        }
+
         getMainData()
         getLocationData()
         collectingThread = CollectingThread()
+        collectingThread.priority = Thread.MIN_PRIORITY
         collectingThread.start()
 
         return super.onStartCommand(intent, flags, startId)
@@ -304,9 +311,9 @@ class BackGroundCollecting: Service() {
 
 
     inner class CollectingThread : Thread() {
-
         override fun run() {
             super.run()
+            Log.d(TAG, "CollectingThread run()")
 
             var second : Int = 0
             var GPSsecond : Int = 0
@@ -324,6 +331,7 @@ class BackGroundCollecting: Service() {
                         GPSsecond++
                         remaining--
 
+                        Log.d(TAG, "remaining: $remaining")
 //                        Log.i(TAG, sensorData)
                     }
 
@@ -341,7 +349,7 @@ class BackGroundCollecting: Service() {
 
                     }
 
-                    Log.d(TAG, "remaining : $remaining")
+//                    Log.d(TAG, "remaining : $remaining")
                     sleep((1000/SENSOR_FREQUENCY).toLong())
 
                 } catch (e: Exception){
@@ -357,5 +365,10 @@ class BackGroundCollecting: Service() {
         val calendar : Calendar = GregorianCalendar(Locale.KOREA)
         return "${calendar.get(YEAR)}_${calendar.get(MONTH)+1}_${calendar.get(DATE)}_${calendar.get(
             HOUR_OF_DAY)}_${calendar.get(MINUTE)}_${calendar.get(SECOND)}_$mode"
+    }
+    private fun dataCollectedDate(): String {
+        val calendar : Calendar = GregorianCalendar(Locale.KOREA)
+        return "${calendar.get(YEAR)},${calendar.get(MONTH)+1},${calendar.get(DATE)},${calendar.get(
+            HOUR_OF_DAY)},${calendar.get(MINUTE)},${calendar.get(SECOND)},${calendar.get(MILLISECOND)},"
     }
 }

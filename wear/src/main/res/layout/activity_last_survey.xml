@@ -4,11 +4,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <EditText
-        android:id="@+id/editTextTextPersonName"
+    <TextView
+        android:id="@+id/textView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:ems="10"
-        android:inputType="textPersonName"
-        android:text="Last View" />
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:text="end collecting"
+        android:textAlignment="center"/>
 </LinearLayout>

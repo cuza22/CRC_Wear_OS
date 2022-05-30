@@ -5,12 +5,13 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <ProgressBar
-        android:id="@+id/progress_bar"
-        style="@android:style/Widget.Material.ProgressBar.Large"
+    <TextView
+        android:id="@+id/remaining_time"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:max="660"
-        android:progress="0"/>
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:textAlignment="center"
+        android:text="TextView" />
 
 </LinearLayout>

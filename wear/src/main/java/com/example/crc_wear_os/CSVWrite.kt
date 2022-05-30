@@ -18,7 +18,7 @@ class CSVWrite {
         Log.d(TAG, "init")
     }
 
-    fun writeCsv(data : String, fileName : String, dataType : String) {
+    fun writeCsv(data : String, fileName : String, mode: String, dataType : String) {
         if (Build.VERSION.SDK_INT <= 29) {
             val dirPath : String = Environment.getExternalStorageDirectory().absolutePath + "/HCILabData"
             directory = File(dirPath)
@@ -30,7 +30,7 @@ class CSVWrite {
         Log.i(TAG, "write CSV")
 
         try {
-            writer = FileWriter("$directory/$fileName $dataType.csv")
+            writer = FileWriter("$directory/$fileName $mode $dataType.csv")
             try {
                 writer.write(data)
             } finally {

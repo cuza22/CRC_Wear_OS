@@ -59,9 +59,9 @@ class MainActivity : Activity() {
                         putExtra("mode", mode.text.toString())
                     }
                     context.startActivity(intent)
+                    (context as Activity).finish()
                 }
             }
-
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MenuAdapter.ViewHolder {

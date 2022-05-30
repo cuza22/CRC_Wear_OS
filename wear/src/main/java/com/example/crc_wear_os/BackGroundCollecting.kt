@@ -1,26 +1,22 @@
 package com.example.crc_wear_os
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.app.PendingIntent.getActivity
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.Intent.getIntent
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.hardware.lights.Light
 import android.location.Location
-import android.os.Binder
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.*
-import org.w3c.dom.ls.LSException
-import java.lang.Exception
 import java.util.*
 import java.util.Calendar.*
 
@@ -71,19 +67,21 @@ class BackGroundCollecting: Service() {
     var latitude : Double = 0.0
     var longitude : Double = 0.0
 
-    // data
-    var remaining : Int = 5
-    val SENSOR_FREQUENCY : Int = 30
+    // time
+    var remaining : Int = 60
+    val SENSOR_FREQUENCY : Int = 2
     val LOCATION_INTERVAL : Int = 5
 
+    // data
     private lateinit var collectingThread : CollectingThread
     var stopCollecting : Boolean = false
 
-    private var sensorData : String = "graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer, HR\n"
+    private var sensorData : String = "year, month, day, hour, min, sec, ms, graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer, HR\n"
     private var locationData : String = "latitude, longitude\n"
 
     // write
-    val mode : String = ""
+//    lateinit var calendar : Calendar
+    var mode : String = ""
     lateinit var cw : CSVWrite
 
 
@@ -107,6 +105,7 @@ class BackGroundCollecting: Service() {
 
         // data write
         cw = CSVWrite()
+//        calendar = GregorianCalendar(Locale.KOREA)
 
         // sensors
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -142,6 +141,7 @@ class BackGroundCollecting: Service() {
         sensorManager.registerListener(heartRateListener,heartRateSensor, SensorManager.SENSOR_DELAY_FASTEST)
 
         // location
+//        Log.i(TAG, packageManager.hasSystemFeature(PackageManager.FEATURE_LOCATION_GPS).toString())
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(baseContext)
         locationRequest = LocationRequest.create()
             .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
@@ -160,18 +160,18 @@ class BackGroundCollecting: Service() {
             }
         }
 
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) { return }
-        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+//        if (ActivityCompat.checkSelfPermission(
+//                this,
+//                Manifest.permission.ACCESS_FINE_LOCATION
+//            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+//                this,
+//                Manifest.permission.ACCESS_COARSE_LOCATION
+//            ) != PackageManager.PERMISSION_GRANTED
+//        ) { return }
+//        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
     }
 
-    override fun onDestroy() {
+   override fun onDestroy() {
         Log.d(TAG, "onDestroy()")
         super.onDestroy()
 
@@ -181,36 +181,53 @@ class BackGroundCollecting: Service() {
         sensorManager.unregisterListener(gyrometerListener)
         sensorManager.unregisterListener(magnetometerListener)
         sensorManager.unregisterListener(lightListener)
+        sensorManager.unregisterListener(baroListener)
         sensorManager.unregisterListener(heartRateListener)
-//        sensorManager.unregisterListener(heartBeatListener)
 
         // stop location listener
         fusedLocationClient.removeLocationUpdates(locationCallback)
 
         // write data as .csv
         val date = currentDate()
-        cw.writeCsv(sensorData, date, "SensorData")
-        cw.writeCsv(locationData, date, "GPSData")
+//        cw.writeCsv(sensorData, date, mode, "SensorData")
+        cw.writeCsv(locationData, date, mode, "GPSData")
     }
 
     fun getMainData() {
 //        Log.i(TAG, "getMainData()")
 //        Log.i(TAG, "Gra : $graX, $graY, $graZ   HR : $heartRate")
-        sensorData += "$graX, $graY, $graZ, $accX, $accY, $accZ, $gyroX, $gyroY, $gyroZ, $magX, $magY, $magZ, $light, $barometer, $heartRate\n"
+        sensorData += dataCollectedDate() + "$graX, $graY, $graZ, $accX, $accY, $accZ, $gyroX, $gyroY, $gyroZ, $magX, $magY, $magZ, $light, $barometer, $heartRate\n"
 
     }
     fun getLocationData() {
 //        Log.i(TAG, "getLocationData()")
 //        Log.i(TAG, "lat: $latitude   lon: $longitude")
-        locationData += "$latitude, $longitude\n"
+        locationData += dataCollectedDate() + "$latitude, $longitude\n"
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "onStartCommand()")
+
+        if (intent != null) {
+            mode = intent.extras?.get("mode") as String
+            Log.d(TAG, "mode: $mode")
+        }
+
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {  }
+        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+
+
         getMainData()
         getLocationData()
         collectingThread = CollectingThread()
-        collectingThread.start()
+        collectingThread.run()
 
         return super.onStartCommand(intent, flags, startId)
     }
@@ -304,12 +321,13 @@ class BackGroundCollecting: Service() {
 
 
     inner class CollectingThread : Thread() {
-
         override fun run() {
             super.run()
+            Log.i(TAG, "CollectingThread start")
 
-            var second : Int = 0
-            var GPSsecond : Int = 0
+            var second  = 0
+            var GPSsecond = 0
+            var i = 0
 
             while (!stopCollecting) {
                 second++
@@ -324,6 +342,7 @@ class BackGroundCollecting: Service() {
                         GPSsecond++
                         remaining--
 
+                        Log.d(TAG, "remaining : $remaining")
 //                        Log.i(TAG, sensorData)
                     }
 
@@ -331,7 +350,14 @@ class BackGroundCollecting: Service() {
                         getLocationData()
                         GPSsecond = 0
 
-//                        Log.i(TAG, locationData)
+                        Log.i(TAG, locationData)
+
+                        // write sensor data once in five seconds
+                        val date = currentDate()
+                        cw.writeCsv(sensorData, date, "$mode-$i", "SensorData")
+                        Log.i(TAG, sensorData)
+                        sensorData = "year, month, day, hour, min, sec, ms, graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer, HR\n"
+                        i++
                     }
 
                     if (remaining == 0) {
@@ -341,12 +367,12 @@ class BackGroundCollecting: Service() {
 
                     }
 
-                    Log.d(TAG, "remaining : $remaining")
-                    sleep((1000/SENSOR_FREQUENCY).toLong())
+                    SystemClock.sleep((1000/SENSOR_FREQUENCY).toLong())
 
                 } catch (e: Exception){
                     Log.e (TAG, e.toString())
                 }
+
             }
 
         }
@@ -357,5 +383,11 @@ class BackGroundCollecting: Service() {
         val calendar : Calendar = GregorianCalendar(Locale.KOREA)
         return "${calendar.get(YEAR)}_${calendar.get(MONTH)+1}_${calendar.get(DATE)}_${calendar.get(
             HOUR_OF_DAY)}_${calendar.get(MINUTE)}_${calendar.get(SECOND)}_$mode"
+    }
+
+    private fun dataCollectedDate(): String {
+        val calendar : Calendar = GregorianCalendar(Locale.KOREA)
+        return "${calendar.get(YEAR)},${calendar.get(MONTH)+1},${calendar.get(DATE)},${calendar.get(
+            HOUR_OF_DAY)},${calendar.get(MINUTE)},${calendar.get(SECOND)},${calendar.get(MILLISECOND)},"
     }
 }

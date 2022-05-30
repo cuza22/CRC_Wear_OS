@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.*
 import android.util.Log
 import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import java.util.concurrent.TimeUnit
 
@@ -20,20 +21,20 @@ class Collecting : Activity() {
 
     private val TAG = "Collecting"
 
-//    var locationManager : LocationManager = TODO()
-
     private val AMBIENT_UPDATE_ACTION = "com.your.package.action.AMBIENT_UPDATE"
     private lateinit var ambientUpdateAlarmManager: AlarmManager
     private lateinit var ambientUpdatePendingIntent: PendingIntent
     private lateinit var ambientUpdateBroadcastReceiver: BroadcastReceiver
 
-    private lateinit var progressBar : ProgressBar
-    private lateinit var countDownTimer : CountDownTimer
+//    private lateinit var progressBar : ProgressBar
+    private lateinit var remainingText : TextView
 
     internal lateinit var intent : Intent
     private lateinit var mode : String
+    private var isBound : Boolean = false
 
-    private val COLLECTING_TIME : Int = 5
+    private lateinit var countingThread : CountingThread
+    private val COLLECTING_TIME : Int = 60
     private var remainingTime : Int = COLLECTING_TIME
     private var stopCounting : Boolean = false
 
@@ -43,8 +44,11 @@ class Collecting : Activity() {
         override fun onServiceConnected(name: ComponentName?, binderService: IBinder?) {
             Log.i(TAG, "onServiceConnected")
             binder = IMyAidlInterface.Stub.asInterface(binderService)
-//            val binder = service as BackGroundCollecting.LocalBinder
-//            service = binder.getService()
+
+            // start counting thread (ends automatically)
+            countingThread = CountingThread()
+            countingThread.run()
+
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -55,13 +59,14 @@ class Collecting : Activity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        Log.d(TAG, "onCreate")
+        Log.d(TAG, "onCreate()")
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_collecting)
 
         // get information from intent
         mode = getIntent().extras?.get("mode") as String
+        Log.i(TAG, "mode: $mode")
 
         // keep the app awake - alarm
         ambientUpdateAlarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -74,47 +79,25 @@ class Collecting : Activity() {
             }
         }
 
+        //
         // count-down UI
-        progressBar = findViewById(R.id.progress_bar)
-        progressBar.progress = remainingTime
-
-//        countDownTimer = object : CountDownTimer((COLLECTING_TIME * 1000).toLong(), 1000) {
-//            override fun onTick(millisUntilFinished: Long) {
-//                remainingTime = (millisUntilFinished/1000).toInt()
-//                progressBar.progress = remainingTime
-//                Log.d(TAG, "remaining: $remainingTime")
-//            }
-//
-//            override fun onFinish() {
-//                Log.d(TAG, "count down timer finished !!!")
-//            }
-//        }.start()
+//        progressBar = findViewById(R.id.progress_bar)
+//        progressBar.progress = remainingTime
+        remainingText = findViewById(R.id.remaining_time)
+        remainingText.text = "$remainingTime sec"
 
         // start collecting thread (runs background, ends automatically)
         intent = Intent(applicationContext, BackGroundCollecting::class.java).apply {
             setPackage("com.example.crc_wear_os")
             putExtra("mode", mode)
-
         }
 //        Log.d(TAG, "intent : $intent")
         startForegroundService(intent)
         startService(intent)
-        bindService(intent, connection, BIND_AUTO_CREATE)
+        isBound = bindService(intent, connection, BIND_AUTO_CREATE)
+        Log.d(TAG,"isBound : $isBound")
 
-        // start counting thread (ends automatically)
-        CountingThread().start()
     }
-
-//    override fun onStart() {
-//        Log.d(TAG, "onStart()")
-//        super.onStart()
-//
-//        Intent(this, BackGroundCollecting::class.java).also { intent ->
-//            bindService(intent, connection, Context.BIND_AUTO_CREATE)
-//        }
-//
-//        CountingThread().start()
-//    }
 
     private val AMBIENT_INTERVAL_MS: Long = TimeUnit.SECONDS.toMillis(1000)
     private fun refreshDisplayAndSetNextUpdate() {
@@ -132,13 +115,15 @@ class Collecting : Activity() {
     override fun onDestroy() {
         super.onDestroy()
         unbindService(connection)
-        endCollecting()
+        stopService(intent)
+//        endCollecting()
     }
 
     private fun updateRemainingTimeUI() {
         if (binder != null) {
             remainingTime = binder!!.getRemainingTime()
-            progressBar.progress = remainingTime
+//            progressBar.progress = remainingTime
+            remainingText.text = "$remainingTime sec"
             Log.i(TAG, "UI remaining time : $remainingTime")
         } else {
             Log.e(TAG, "binder is null")
@@ -150,9 +135,6 @@ class Collecting : Activity() {
         // stop the alarm
         ambientUpdateAlarmManager.cancel(ambientUpdatePendingIntent)
 
-        // finish binding
-        stopService(intent)
-        unbindService(connection)
 
         // start new activity
         val survey_intent = Intent(applicationContext, LastSurvey::class.java)
@@ -160,7 +142,7 @@ class Collecting : Activity() {
         startActivity(survey_intent)
 
         // finish this activity (collecting)
-//        finish()
+        finish()
     }
 
     // timer thread

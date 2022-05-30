@@ -59,6 +59,8 @@ class MainActivity : Activity() {
                         putExtra("mode", mode.text.toString())
                     }
                     context.startActivity(intent)
+                    val intent_background = Intent(context, BackGroundCollecting::class.java)
+                    context.startActivity(intent_background)
                 }
             }
 

@@ -2,6 +2,7 @@ package com.example.crc_wear_os
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.PendingIntent.getActivity
 import android.app.Service
 import android.content.Context
@@ -14,6 +15,7 @@ import android.hardware.SensorManager
 import android.hardware.lights.Light
 import android.location.Location
 import android.os.Binder
+import android.os.Bundle
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
@@ -23,8 +25,9 @@ import org.w3c.dom.ls.LSException
 import java.lang.Exception
 import java.util.*
 import java.util.Calendar.*
+import kotlin.concurrent.thread
 
-class BackGroundCollecting: Service() {
+class BackGroundCollecting: Activity() {
     private val TAG : String = "BackGroundCollecting"
 
     // Sensors
@@ -87,32 +90,29 @@ class BackGroundCollecting: Service() {
     lateinit var cw : CSVWrite
 
 
-    private val binder = object : IMyAidlInterface.Stub() {
-        override fun getRemainingTime() : Int {
-            return remaining
-        }
-    }
-    override fun onBind(intent: Intent): IBinder {
-        return binder
-    }
+//    private val binder = object : IMyAidlInterface.Stub() {
+//        override fun getRemainingTime() : Int {
+//            return remaining
+//        }
+//    }
+//    override fun onBind(intent: Intent): IBinder {
+//        return binder
+//    }
+//
+//    override fun onUnbind(intent: Intent?): Boolean {
+//        stopCollecting = true
+//        return super.onUnbind(intent)
+//    }
 
-    override fun onUnbind(intent: Intent?): Boolean {
-        stopCollecting = true
-        return super.onUnbind(intent)
-    }
-
-    override fun onCreate() {
+    override fun onCreate(savedInstanceState: Bundle?) {
         Log.d(TAG, "onCreate()")
-        super.onCreate()
+        super.onCreate(savedInstanceState)
 
         // data write
-        var mode = ""
         cw = CSVWrite()
 
         // sensors
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-
-//        Log.d(TAG, "Type of Sensors: " + sensorManager.getSensorList(Sensor.TYPE_ALL))
 
         gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
         gravityListener = GravityListener()
@@ -170,6 +170,42 @@ class BackGroundCollecting: Service() {
             ) != PackageManager.PERMISSION_GRANTED
         ) { return }
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+
+        // thread
+        thread(start=true) {
+            var frequencyCount = 0
+            var GPSCount = 0
+
+            while (remaining > 0) {
+                frequencyCount++
+                getMainData()
+
+                if (frequencyCount == SENSOR_FREQUENCY) {
+                    frequencyCount = 0
+                    GPSCount++
+                    remaining--
+                    Log.d(TAG, "remaining: $remaining")
+                }
+
+                if (GPSCount == LOCATION_INTERVAL) {
+                    getLocationData()
+                    GPSCount = 0
+                }
+
+                if (remaining == 0) {
+                    Log.i(TAG, "remaining time 0")
+                    stopCollecting = true
+                    endService()
+                }
+
+            }
+
+            // write as csv
+            val date = currentDate()
+            cw.writeCsv(sensorData, date, "SensorData")
+            cw.writeCsv(locationData, date, "GPSData")
+        }
+
     }
 
     override fun onDestroy() {
@@ -205,23 +241,23 @@ class BackGroundCollecting: Service() {
         locationData += dataCollectedDate() + "$latitude, $longitude\n"
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "onStartCommand()")
-
-        if (intent != null) {
-            mode = intent.extras?.get("mode") as String
-            Log.d(TAG, "mode: $mode")
-        }
-
-        getMainData()
-        getLocationData()
-        // TODO()
-        collectingThread = CollectingThread()
-        collectingThread.priority = Thread.MIN_PRIORITY
-        collectingThread.start()
-
-        return super.onStartCommand(intent, flags, startId)
-    }
+//    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+//        Log.d(TAG, "onStartCommand()")
+//
+//        if (intent != null) {
+//            mode = intent.extras?.get("mode") as String
+//            Log.d(TAG, "mode: $mode")
+//        }
+//
+//        getMainData()
+//        getLocationData()
+//        // TODO()
+//        collectingThread = CollectingThread()
+//        collectingThread.priority = Thread.MIN_PRIORITY
+//        collectingThread.start()
+//
+//        return super.onStartCommand(intent, flags, startId)
+//    }
 
     inner class GravityListener : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent?) {
@@ -316,15 +352,17 @@ class BackGroundCollecting: Service() {
         cw.writeCsv(sensorData, date, "SensorData")
         cw.writeCsv(locationData, date, "GPSData")
 
-//        // start new activity
-//        val survey_intent = Intent(applicationContext, LastSurvey::class.java).apply {
-//            putExtra("mode", mode)
-//            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-//        }
-//        startActivity(survey_intent)
+////        // start new activity
+////        val survey_intent = Intent(applicationContext, LastSurvey::class.java).apply {
+////            putExtra("mode", mode)
+////            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+////        }
+////        startActivity(survey_intent)
+//
+//        // end BackGroundCollecting Service
+//        this.stopSelf()
 
-        // end BackGroundCollecting Service
-        this.stopSelf()
+        this.finish()
     }
 
     inner class CollectingThread : Thread() {

@@ -127,13 +127,15 @@ class Collecting : Activity() {
 //        }.start()
 
         // start collecting thread (runs background, ends automatically)
-        intent = Intent(applicationContext, BackGroundCollecting::class.java).apply {
-            setPackage("com.example.crc_wear_os")
-            putExtra("mode", mode)
-        }
+//        intent = Intent(applicationContext, BackGroundCollecting::class.java).apply {
+//            setPackage("com.example.crc_wear_os")
+//            putExtra("mode", mode)
+//        }
+//        startActivity(intent)
+
 //        Log.d(TAG, "intent : $intent")
 //        startForegroundService(intent)
-        startService(intent)
+//        startService(intent)
 //        isBound = bindService(intent, connection, BIND_AUTO_CREATE)
 
 //        // start counting thread (ends automatically)

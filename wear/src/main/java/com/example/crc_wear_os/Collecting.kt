@@ -34,7 +34,7 @@ class Collecting : Activity() {
     internal lateinit var intent : Intent
     private lateinit var mode : String
 
-    private val COLLECTING_TIME : Int = 30
+    private val COLLECTING_TIME : Int = 660
     private var remainingTime : Int = COLLECTING_TIME
 
     private lateinit var countingThread: CountingThread
@@ -86,7 +86,7 @@ class Collecting : Activity() {
 //        countingThread.run()
         thread(start = true){
             var i = COLLECTING_TIME
-            while (i < COLLECTING_TIME + 1) {
+            while (i > 0) {
                 i--
                 runOnUiThread {
                     remainingText.text = "$mode\n$i sec"
@@ -197,13 +197,13 @@ class Collecting : Activity() {
     }
 
     // timer thread
-    inner class CountingThread : Thread() {
+    inner class CountingThread : Runnable {
         override fun run() {
 //            super.run()
             Log.i(TAG, "CountingThread run()")
 
             while(!stopCounting) {
-                try {
+//                try {
                     updateRemainingTimeUI()
                     if (remainingTime == 0) {
                         Log.i(TAG, "remaining time 0")
@@ -219,8 +219,8 @@ class Collecting : Activity() {
                         // end collecting
                         endCollecting()
                     }
-                    sleep(1000)
-                } catch (e : InterruptedException) {}
+                    Thread.sleep(1000)
+//                } catch (e : InterruptedException) {}
             }
         }
     }

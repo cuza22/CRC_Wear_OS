@@ -72,14 +72,16 @@ class BackGroundCollecting: Service() {
     var longitude : Double = 0.0
 
     // data
-    var remaining : Int = 30
-    val SENSOR_FREQUENCY : Int = 20
+    var remaining : Int = 60
+    val SENSOR_FREQUENCY : Int = 1
     val LOCATION_INTERVAL : Int = 5
+    val SLEEP_TIME : Long = (1000/SENSOR_FREQUENCY).toLong()
+    var startTime : Long = 0
 
     private lateinit var collectingThread : CollectingThread
     var stopCollecting : Boolean = false
 
-    private var sensorData : String = "year, month, day, hour, min, sec, ms, graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer, HR\n"
+    private var sensorData : String = "year, month, day, hour, min, sec, ms, graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer\n"
     private var locationData : String = "latitude, longitude\n"
 
     // write
@@ -138,9 +140,9 @@ class BackGroundCollecting: Service() {
         baroListener = BaroListener()
         sensorManager.registerListener(baroListener, baroSensor, SensorManager.SENSOR_DELAY_FASTEST)
 
-        heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
-        heartRateListener = HeartRateListener()
-        sensorManager.registerListener(heartRateListener,heartRateSensor, SensorManager.SENSOR_DELAY_FASTEST)
+//        heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
+//        heartRateListener = HeartRateListener()
+//        sensorManager.registerListener(heartRateListener,heartRateSensor, SensorManager.SENSOR_DELAY_FASTEST)
 
         // location
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(baseContext)
@@ -196,7 +198,7 @@ class BackGroundCollecting: Service() {
     fun getMainData() {
 //        Log.i(TAG, "getMainData()")
 //        Log.i(TAG, "Gra : $graX, $graY, $graZ   HR : $heartRate")
-        sensorData += dataCollectedDate() + "$graX, $graY, $graZ, $accX, $accY, $accZ, $gyroX, $gyroY, $gyroZ, $magX, $magY, $magZ, $light, $barometer, $heartRate\n"
+        sensorData += dataCollectedDate() + "$graX, $graY, $graZ, $accX, $accY, $accZ, $gyroX, $gyroY, $gyroZ, $magX, $magY, $magZ, $light, $barometer\n"
 
     }
     fun getLocationData() {
@@ -335,13 +337,13 @@ class BackGroundCollecting: Service() {
             var second : Int = 0
             var GPSsecond : Int = 0
 
+            startTime = System.currentTimeMillis()
             while (!stopCollecting) {
                 second++
-                getMainData()
-
                 try {
 //                    Log.d(TAG, "CollectingThread is ${this.isAlive}")
                     Log.d(TAG, "frequencyCount: $second   GPSsecond: $GPSsecond")
+                    getMainData()
 
                     if (second == SENSOR_FREQUENCY) {
                         second = 0
@@ -369,7 +371,7 @@ class BackGroundCollecting: Service() {
 
 //                    Log.d(TAG, "remaining : $remaining")
 //                    sleep((1000/SENSOR_FREQUENCY).toLong())
-                    sleep(10)
+                    sleep(SLEEP_TIME)
 
                 } catch (e: Exception){
                     Log.e (TAG, e.toString())

@@ -316,12 +316,12 @@ class BackGroundCollecting: Service() {
         cw.writeCsv(sensorData, date, "SensorData")
         cw.writeCsv(locationData, date, "GPSData")
 
-        // start new activity
-        val survey_intent = Intent(applicationContext, LastSurvey::class.java).apply {
-            putExtra("mode", mode)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        startActivity(survey_intent)
+//        // start new activity
+//        val survey_intent = Intent(applicationContext, LastSurvey::class.java).apply {
+//            putExtra("mode", mode)
+//            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+//        }
+//        startActivity(survey_intent)
 
         // end BackGroundCollecting Service
         this.stopSelf()
@@ -369,7 +369,7 @@ class BackGroundCollecting: Service() {
 
 //                    Log.d(TAG, "remaining : $remaining")
 //                    sleep((1000/SENSOR_FREQUENCY).toLong())
-                    sleep(10)
+                    sleep(20)
 
                 } catch (e: Exception){
                     Log.e (TAG, e.toString())

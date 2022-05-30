@@ -86,13 +86,25 @@ class Collecting : Activity() {
 //        countingThread.run()
         thread(start = true){
             var i = COLLECTING_TIME
-            while (i < COLLECTING_TIME + 1) {
+
+            while (i > 0) {
                 i--
                 runOnUiThread {
                     remainingText.text = "$mode\n$i sec"
                 }
                 Log.d(TAG, "remaining UI : $i")
                 Thread.sleep(1000)
+
+                // remaining == 0
+                if (i == 0) {
+                    // start new activity
+                    val survey_intent = Intent(applicationContext, LastSurvey::class.java)
+                    survey_intent.putExtra("mode", mode)
+                    startActivity(survey_intent)
+
+                    // finish this activity (collecting)
+                    finish()
+                }
             }
         }
 
@@ -122,7 +134,7 @@ class Collecting : Activity() {
 //        Log.d(TAG, "intent : $intent")
 //        startForegroundService(intent)
         startService(intent)
-        isBound = bindService(intent, connection, BIND_AUTO_CREATE)
+//        isBound = bindService(intent, connection, BIND_AUTO_CREATE)
 
 //        // start counting thread (ends automatically)
 //        CountingThread().run()
@@ -154,16 +166,16 @@ class Collecting : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (isBound) { unbindService(connection) }
-        endCollecting()
+//        if (isBound) { unbindService(connection) }
+//        endCollecting()
 
-        // start new activity
-        val survey_intent = Intent(applicationContext, LastSurvey::class.java)
-        survey_intent.putExtra("mode", mode)
-        startActivity(survey_intent)
-
-        // finish this activity (collecting)
-        finish()
+//        // start new activity
+//        val survey_intent = Intent(applicationContext, LastSurvey::class.java)
+//        survey_intent.putExtra("mode", mode)
+//        startActivity(survey_intent)
+//
+//        // finish this activity (collecting)
+//        finish()
     }
 
     private fun updateRemainingTimeUI() {

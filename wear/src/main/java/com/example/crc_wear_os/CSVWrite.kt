@@ -13,12 +13,12 @@ class CSVWrite {
 
     lateinit var directory : File
     lateinit var writer : FileWriter
+    var fileDirectory : String = ""
+
 
     init {
-        Log.d(TAG, "init")
-    }
+        Log.d(TAG, "init CSV")
 
-    fun writeCsv(data : String, fileName : String, dataType : String) {
         if (Build.VERSION.SDK_INT <= 29) {
             val dirPath : String = Environment.getExternalStorageDirectory().absolutePath + "/HCILabData"
             directory = File(dirPath)
@@ -26,13 +26,31 @@ class CSVWrite {
         } else {
             directory = Environment.getExternalStoragePublicDirectory(DIRECTORY_DOCUMENTS)
         }
+    }
 
+    fun createCsv(data : String, fileName : String, dataType: String) {
+        Log.i(TAG, "create CSV")
+        fileDirectory = "$directory/$fileName"
+        try {
+            writer = FileWriter(fileDirectory + "_$dataType.csv", true)
+            try {
+                writer.write(data)
+            } finally {
+                writer.close()
+            }
+        } catch (e: IOException) {
+            Log.e(TAG, "Can't create file")
+            e.printStackTrace()
+        }
+    }
+
+    fun writeCsv(data : String, dataType : String) {
         Log.i(TAG, "write CSV")
 
         try {
-            writer = FileWriter("$directory/$fileName $dataType.csv")
+            writer = FileWriter(fileDirectory + "_$dataType.csv", true)
             try {
-                writer.write(data)
+                writer.append(data)
             } finally {
                 writer.close()
             }

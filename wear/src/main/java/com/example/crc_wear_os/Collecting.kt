@@ -22,6 +22,10 @@ class Collecting : Activity() {
 
     private val TAG = "Collecting"
 
+    // constants
+    private val COLLECTING_TIME : Int = 60
+    private var remainingTime : Int = COLLECTING_TIME
+
     private val AMBIENT_UPDATE_ACTION = "com.your.package.action.AMBIENT_UPDATE"
     private lateinit var ambientUpdateAlarmManager: AlarmManager
     private lateinit var ambientUpdatePendingIntent: PendingIntent
@@ -33,9 +37,6 @@ class Collecting : Activity() {
 
     internal lateinit var intent : Intent
     private lateinit var mode : String
-
-    private val COLLECTING_TIME : Int = 30
-    private var remainingTime : Int = COLLECTING_TIME
 
     private lateinit var countingThread: CountingThread
     private var stopCounting : Boolean = false
@@ -84,17 +85,17 @@ class Collecting : Activity() {
 //        // start counting thread (ends automatically) TODO()
 //        countingThread = CountingThread()
 //        countingThread.run()
-//        thread(start = true){
-//            var i = COLLECTING_TIME
-//            while (i > 0) {
-//                i--
-//                runOnUiThread {
-//                    remainingText.text = "$mode\n$i sec"
-//                }
-//                Log.d(TAG, "remaining UI : $i")
-//                Thread.sleep(1000)
-//            }
-//        }
+        thread(start = true){
+            var i = COLLECTING_TIME
+            while (i > 0) {
+                i--
+                runOnUiThread {
+                    remainingText.text = "$mode\n$i sec"
+                }
+                Log.d(TAG, "remaining UI : $i")
+                Thread.sleep(1000)
+            }
+        }
 
         // count-down UI
 //        progressBar = findViewById(R.id.progress_bar)
@@ -122,7 +123,7 @@ class Collecting : Activity() {
 //        Log.d(TAG, "intent : $intent")
 //        startForegroundService(intent)
         startService(intent)
-        isBound = bindService(intent, connection, BIND_AUTO_CREATE)
+//        isBound = bindService(intent, connection, BIND_AUTO_CREATE)
 
 //        // start counting thread (ends automatically)
 //        CountingThread().run()
@@ -154,8 +155,8 @@ class Collecting : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (isBound) { unbindService(connection) }
-        endCollecting()
+//        if (isBound) { unbindService(connection) }
+//        endCollecting()
 
         // start new activity
         val survey_intent = Intent(applicationContext, LastSurvey::class.java)

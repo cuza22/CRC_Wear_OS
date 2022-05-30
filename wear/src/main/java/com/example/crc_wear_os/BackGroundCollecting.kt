@@ -27,6 +27,16 @@ import java.util.Calendar.*
 class BackGroundCollecting: Service() {
     private val TAG : String = "BackGroundCollecting"
 
+    // constants
+    val COLLECTING_TIME : Int = 60
+    val SENSOR_FREQUENCY : Int = 300
+    val LOCATION_INTERVAL : Int = 5
+    //    val SLEEP_TIME : Long = (1000/SENSOR_FREQUENCY).toLong()
+    val SLEEP_TIME : Long = 0
+    var startTime : Long = 0
+    val SAVE_INTERVAL : Int = 30
+    lateinit var date: String
+
     // Sensors
     private lateinit var sensorManager : SensorManager
 
@@ -72,17 +82,14 @@ class BackGroundCollecting: Service() {
     var longitude : Double = 0.0
 
     // data
-    var remaining : Int = 30
-    val SENSOR_FREQUENCY : Int = 50
-    val LOCATION_INTERVAL : Int = 5
-    val SLEEP_TIME : Long = (1000/SENSOR_FREQUENCY).toLong()
-    var startTime : Long = 0
-
+    var remaining : Int = COLLECTING_TIME
     private lateinit var collectingThread : CollectingThread
     var stopCollecting : Boolean = false
 
-    private var sensorData : String = "year, month, day, hour, min, sec, ms, graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer\n"
-    private var locationData : String = "latitude, longitude\n"
+    private var sensorDataHeader : String = "year, month, day, hour, min, sec, ms, graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer, hr\n"
+    private var locationDataHeader : String = "year, month, day, hour, min, sec, ms, latitude, longitude\n"
+    private var sensorData : String = ""
+    private var locationData : String = ""
 
     // write
     var mode : String = ""
@@ -104,11 +111,11 @@ class BackGroundCollecting: Service() {
     }
 
     override fun onCreate() {
-        Log.d(TAG, "onCreate()")
+//        Log.d(TAG, "onCreate()")
         super.onCreate()
 
         // data write
-        var mode = ""
+        date = currentDate()
         cw = CSVWrite()
 
         // sensors
@@ -140,9 +147,9 @@ class BackGroundCollecting: Service() {
         baroListener = BaroListener()
         sensorManager.registerListener(baroListener, baroSensor, SensorManager.SENSOR_DELAY_FASTEST)
 
-//        heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
-//        heartRateListener = HeartRateListener()
-//        sensorManager.registerListener(heartRateListener,heartRateSensor, SensorManager.SENSOR_DELAY_FASTEST)
+        heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
+        heartRateListener = HeartRateListener()
+        sensorManager.registerListener(heartRateListener,heartRateSensor, SensorManager.SENSOR_DELAY_FASTEST)
 
         // location
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(baseContext)
@@ -153,7 +160,7 @@ class BackGroundCollecting: Service() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
                 if (locationResult.equals(null)) {
-                    Log.e(TAG, "location result null")
+//                    Log.e(TAG, "location result null")
                         return
                 }
 
@@ -172,10 +179,12 @@ class BackGroundCollecting: Service() {
             ) != PackageManager.PERMISSION_GRANTED
         ) { return }
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+        Log.d(TAG, fusedLocationClient.toString())
+
     }
 
     override fun onDestroy() {
-        Log.d(TAG, "onDestroy()")
+//        Log.d(TAG, "onDestroy()")
         super.onDestroy()
 
         // stop sensor listener
@@ -190,15 +199,14 @@ class BackGroundCollecting: Service() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
 
         // write data as .csv
-        val date = currentDate()
-        cw.writeCsv(sensorData, date, "SensorData")
-        cw.writeCsv(locationData, date, "GPSData")
+//        cw.writeCsv(sensorData, "SensorData")
+//        cw.writeCsv(locationData, "GPSData")
     }
 
     fun getMainData() {
 //        Log.i(TAG, "getMainData()")
-//        Log.i(TAG, "Gra : $graX, $graY, $graZ   HR : $heartRate")
-        sensorData += dataCollectedDate() + "$graX, $graY, $graZ, $accX, $accY, $accZ, $gyroX, $gyroY, $gyroZ, $magX, $magY, $magZ, $light, $barometer\n"
+//        Log.i(TAG, "Sensors : $graX, $accX, $gyroX, $magX   HR : $heartRate")
+        sensorData += dataCollectedDate() + "$graX, $graY, $graZ, $accX, $accY, $accZ, $gyroX, $gyroY, $gyroZ, $magX, $magY, $magZ, $light, $barometer, $heartRate\n"
 
     }
     fun getLocationData() {
@@ -208,15 +216,17 @@ class BackGroundCollecting: Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "onStartCommand()")
+//        Log.d(TAG, "onStartCommand()")
 
         if (intent != null) {
             mode = intent.extras?.get("mode") as String
-            Log.d(TAG, "mode: $mode")
+//            Log.d(TAG, "mode: $mode")
         }
+        cw.createCsv(sensorDataHeader, "$date $mode", "sensorData")
+        cw.createCsv(locationDataHeader, "$date $mode", "GPSData")
 
-        getMainData()
-        getLocationData()
+//        getMainData()
+//        getLocationData()
         // TODO()
         collectingThread = CollectingThread()
         collectingThread.priority = Thread.MAX_PRIORITY
@@ -314,9 +324,8 @@ class BackGroundCollecting: Service() {
 
     fun endService() {
         // write as csv
-        val date = currentDate()
-        cw.writeCsv(sensorData, date, "SensorData")
-        cw.writeCsv(locationData, date, "GPSData")
+//        cw.writeCsv(sensorData, "SensorData")
+//        cw.writeCsv(locationData, "GPSData")
 
         // start new activity
         val survey_intent = Intent(applicationContext, LastSurvey::class.java).apply {
@@ -342,7 +351,7 @@ class BackGroundCollecting: Service() {
                 second++
                 try {
 //                    Log.d(TAG, "CollectingThread is ${this.isAlive}")
-                    Log.d(TAG, "frequencyCount: $second   GPSsecond: $GPSsecond")
+//                    Log.d(TAG, "frequencyCount: $second   GPSsecond: $GPSsecond")
                     getMainData()
 
                     if (second == SENSOR_FREQUENCY) {
@@ -360,11 +369,17 @@ class BackGroundCollecting: Service() {
                         GPSsecond = 0
 
 //                        Log.i(TAG, locationData)
+
+                        cw.writeCsv(sensorData, "sensorData")
+                        cw.writeCsv(locationData, "GPSData")
+
+                        sensorData = ""
+                        locationData = ""
                     }
 
 //                    if (((System.currentTimeMillis()-startTime)/1000) > remaining) {
                     if (remaining == 0) {
-                        Log.i(TAG, "remaining time 0")
+//                        Log.i(TAG, "remaining time 0")
 
                         stopCollecting = true
                         endService()

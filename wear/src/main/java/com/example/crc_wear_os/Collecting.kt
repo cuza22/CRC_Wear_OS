@@ -47,6 +47,7 @@ class Collecting : Activity() {
     private val COLLECTING_TIME : Int = 30
     private val SENSOR_FREQUENCY : Int = 20
     private val LOCATION_INTERVAL : Int = 5
+    private val SLEEP_TIME : Long = (1000/SENSOR_FREQUENCY).toLong()
 
     // Sensors
     private lateinit var sensorManager : SensorManager
@@ -198,31 +199,32 @@ class Collecting : Activity() {
             var frequencyCount = 0
             var GPSCount = 0
 
-            while (!stopCollecting) {
-                Log.d(TAG, "stopcollecting true")
-                frequencyCount++
-                getMainData()
+            runOnUiThread {
+                while (!stopCollecting) {
+                    Log.d(TAG, "stopcollecting true")
+                    frequencyCount++
+                    getMainData()
 
-                if (frequencyCount == SENSOR_FREQUENCY) {
-                    frequencyCount = 0
-                    GPSCount++
-                    remainingTime--
-                    runOnUiThread {
+                    if (frequencyCount == SENSOR_FREQUENCY) {
+                        frequencyCount = 0
+                        GPSCount++
+                        remainingTime--
+
                         remainingText.text = "$mode\n$remainingTime sec"
-                        Log.d(TAG, "remaining UI : $remainingTime")
+                        Log.d(TAG, "remaining : $remainingTime")
+
                     }
-                }
-                if (GPSCount == LOCATION_INTERVAL) {
-                    getLocationData()
-                    GPSCount = 0
-                }
-                if (remainingTime == 0) {
-                    stopCollecting = true
-                }
+                    if (GPSCount == LOCATION_INTERVAL) {
+                        getLocationData()
+                        GPSCount = 0
+                    }
+                    if (remainingTime == 0) {
+                        stopCollecting = true
+                    }
 
-                Log.d(TAG, "frequencyCount: $frequencyCount   GPSCount: $GPSCount")
-
-                Thread.sleep((1000/SENSOR_FREQUENCY).toLong())
+//                    Log.d(TAG, "frequencyCount: $frequencyCount   GPSCount: $GPSCount")
+                    Thread.sleep(SLEEP_TIME)
+                }
             }
         }
     }

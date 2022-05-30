@@ -16,12 +16,11 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 class Collecting : Activity() {
 
     private val TAG = "Collecting"
-
-//    var locationManager : LocationManager = TODO()
 
     private val AMBIENT_UPDATE_ACTION = "com.your.package.action.AMBIENT_UPDATE"
     private lateinit var ambientUpdateAlarmManager: AlarmManager
@@ -49,10 +48,10 @@ class Collecting : Activity() {
             Log.i(TAG, "onServiceConnected")
             binder = IMyAidlInterface.Stub.asInterface(binderService)
 
-            // start counting thread (ends automatically)
-            countingThread = CountingThread()
-            countingThread.priority = Thread.MAX_PRIORITY
-            countingThread.run()
+//            // start counting thread (ends automatically) TODO()
+//            countingThread = CountingThread()
+//            countingThread.priority = Thread.MAX_PRIORITY
+//            countingThread.run()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -82,11 +81,26 @@ class Collecting : Activity() {
             }
         }
 
+//        // start counting thread (ends automatically) TODO()
+//        countingThread = CountingThread()
+//        countingThread.run()
+        thread(start = true){
+            var i = COLLECTING_TIME
+            while (i < COLLECTING_TIME + 1) {
+                i--
+                runOnUiThread {
+                    remainingText.text = "$mode\n$i sec"
+                }
+                Log.d(TAG, "remaining UI : $i")
+                Thread.sleep(1000)
+            }
+        }
+
         // count-down UI
 //        progressBar = findViewById(R.id.progress_bar)
 //        progressBar.progress = remainingTime
         remainingText = findViewById(R.id.remaining_time)
-        remainingText.text = "$remainingTime sec"
+        remainingText.text = "$mode\n$remainingTime sec"
 
 //        countDownTimer = object : CountDownTimer((COLLECTING_TIME * 1000).toLong(), 1000) {
 //            override fun onTick(millisUntilFinished: Long) {
@@ -104,7 +118,6 @@ class Collecting : Activity() {
         intent = Intent(applicationContext, BackGroundCollecting::class.java).apply {
             setPackage("com.example.crc_wear_os")
             putExtra("mode", mode)
-
         }
 //        Log.d(TAG, "intent : $intent")
 //        startForegroundService(intent)
@@ -186,22 +199,20 @@ class Collecting : Activity() {
     // timer thread
     inner class CountingThread : Thread() {
         override fun run() {
-            super.run()
+//            super.run()
             Log.i(TAG, "CountingThread run()")
 
             while(!stopCounting) {
-
-                updateRemainingTimeUI()
-
                 try {
+                    updateRemainingTimeUI()
                     if (remainingTime == 0) {
                         Log.i(TAG, "remaining time 0")
 
                         stopCounting = true
                         // notification
-                        val notification : Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                        val ringtone = RingtoneManager.getRingtone(applicationContext, notification)
-                        ringtone.play()
+//                        val notification : Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+//                        val ringtone = RingtoneManager.getRingtone(applicationContext, notification)
+//                        ringtone.play()
 //                        val vibrator : Vibrator = getSystemService(VIBRATOR_MANAGER_SERVICE) as Vibrator
 //                        vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
 

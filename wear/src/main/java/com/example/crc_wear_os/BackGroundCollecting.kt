@@ -73,7 +73,7 @@ class BackGroundCollecting: Service() {
 
     // data
     var remaining : Int = 30
-    val SENSOR_FREQUENCY : Int = 60
+    val SENSOR_FREQUENCY : Int = 20
     val LOCATION_INTERVAL : Int = 5
 
     private lateinit var collectingThread : CollectingThread
@@ -195,7 +195,7 @@ class BackGroundCollecting: Service() {
 
     fun getMainData() {
 //        Log.i(TAG, "getMainData()")
-        Log.i(TAG, "Gra : $graX, $graY, $graZ   HR : $heartRate")
+//        Log.i(TAG, "Gra : $graX, $graY, $graZ   HR : $heartRate")
         sensorData += dataCollectedDate() + "$graX, $graY, $graZ, $accX, $accY, $accZ, $gyroX, $gyroY, $gyroZ, $magX, $magY, $magZ, $light, $barometer, $heartRate\n"
 
     }
@@ -215,6 +215,7 @@ class BackGroundCollecting: Service() {
 
         getMainData()
         getLocationData()
+        // TODO()
         collectingThread = CollectingThread()
         collectingThread.priority = Thread.MIN_PRIORITY
         collectingThread.start()
@@ -309,10 +310,26 @@ class BackGroundCollecting: Service() {
 
     }
 
+    fun endService() {
+        // write as csv
+        val date = currentDate()
+        cw.writeCsv(sensorData, date, "SensorData")
+        cw.writeCsv(locationData, date, "GPSData")
+
+        // start new activity
+        val survey_intent = Intent(applicationContext, LastSurvey::class.java).apply {
+            putExtra("mode", mode)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(survey_intent)
+
+        // end BackGroundCollecting Service
+        this.stopSelf()
+    }
 
     inner class CollectingThread : Thread() {
         override fun run() {
-            super.run()
+//            super.run()
             Log.d(TAG, "CollectingThread run()")
 
             var second : Int = 0
@@ -324,7 +341,7 @@ class BackGroundCollecting: Service() {
 
                 try {
 //                    Log.d(TAG, "CollectingThread is ${this.isAlive}")
-//                    Log.d(TAG, "second: $second   GPSsecond: $GPSsecond")
+                    Log.d(TAG, "frequencyCount: $second   GPSsecond: $GPSsecond")
 
                     if (second == SENSOR_FREQUENCY) {
                         second = 0
@@ -346,11 +363,13 @@ class BackGroundCollecting: Service() {
                         Log.i(TAG, "remaining time 0")
 
                         stopCollecting = true
+                        endService()
 
                     }
 
 //                    Log.d(TAG, "remaining : $remaining")
-                    sleep((1000/SENSOR_FREQUENCY).toLong())
+//                    sleep((1000/SENSOR_FREQUENCY).toLong())
+                    sleep(10)
 
                 } catch (e: Exception){
                     Log.e (TAG, e.toString())

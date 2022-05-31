@@ -15,6 +15,7 @@ import android.util.Log
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -23,7 +24,7 @@ class Collecting : Activity() {
     private val TAG = "Collecting"
 
     // constants
-    private val COLLECTING_TIME : Int = 60
+    private val COLLECTING_TIME : Int = 660
     private var remainingTime : Int = COLLECTING_TIME
 
     private val AMBIENT_UPDATE_ACTION = "com.your.package.action.AMBIENT_UPDATE"
@@ -35,7 +36,7 @@ class Collecting : Activity() {
 //    private lateinit var countDownTimer : CountDownTimer
     private lateinit var remainingText : TextView
 
-    internal lateinit var intent : Intent
+    internal var intent : Intent? = null
     private lateinit var mode : String
 
     private lateinit var countingThread: CountingThread
@@ -119,6 +120,7 @@ class Collecting : Activity() {
         intent = Intent(applicationContext, BackGroundCollecting::class.java).apply {
             setPackage("com.example.crc_wear_os")
             putExtra("mode", mode)
+            putExtra("isFirstCollecting", true)
         }
 //        Log.d(TAG, "intent : $intent")
 //        startForegroundService(intent)
@@ -153,10 +155,20 @@ class Collecting : Activity() {
         Log.d(TAG, "alarm: $triggerTimeMs")
     }
 
+    override fun onResume() {
+        super.onResume()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
 //        if (isBound) { unbindService(connection) }
 //        endCollecting()
+
+        // destroy service
+        if (intent != null) {
+            stopService(intent)
+            intent = null
+        }
 
         // start new activity
         val survey_intent = Intent(applicationContext, LastSurvey::class.java)
@@ -166,6 +178,7 @@ class Collecting : Activity() {
         // finish this activity (collecting)
         finish()
     }
+
 
     private fun updateRemainingTimeUI() {
         if (binder != null) {
@@ -185,7 +198,7 @@ class Collecting : Activity() {
 
         // finish binding
         stopService(intent)
-        if (isBound) { unbindService(connection) }
+//        if (isBound) { unbindService(connection) }
         isBound = false
 
 //        // start new activity

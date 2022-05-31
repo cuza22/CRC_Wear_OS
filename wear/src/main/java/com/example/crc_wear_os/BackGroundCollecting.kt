@@ -2,6 +2,8 @@ package com.example.crc_wear_os
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.app.PendingIntent.getActivity
 import android.app.Service
 import android.content.Context
@@ -13,9 +15,9 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.hardware.lights.Light
 import android.location.Location
-import android.os.Binder
-import android.os.IBinder
-import android.os.Looper
+import android.net.Uri
+import android.os.*
+import android.provider.Settings
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.*
@@ -28,13 +30,13 @@ class BackGroundCollecting: Service() {
     private val TAG : String = "BackGroundCollecting"
 
     // constants
-    val COLLECTING_TIME : Int = 60
-    val SENSOR_FREQUENCY : Int = 300
+    val COLLECTING_TIME : Int = 660
+    val SENSOR_FREQUENCY : Int = 50
     val LOCATION_INTERVAL : Int = 5
     //    val SLEEP_TIME : Long = (1000/SENSOR_FREQUENCY).toLong()
-    val SLEEP_TIME : Long = 0
+    val SLEEP_TIME : Long = 16
     var startTime : Long = 0
-    val SAVE_INTERVAL : Int = 30
+//    val SAVE_INTERVAL : Int = 30
     lateinit var date: String
 
     // Sensors
@@ -85,6 +87,7 @@ class BackGroundCollecting: Service() {
     var remaining : Int = COLLECTING_TIME
     private lateinit var collectingThread : CollectingThread
     var stopCollecting : Boolean = false
+    var isFirstCollecting : Boolean = true
 
     private var sensorDataHeader : String = "year, month, day, hour, min, sec, ms, graX, graY, graZ, accX, accY, accZ, gyroX, gyroY, gyroZ, magX, magY, magZ, light, barometer, hr\n"
     private var locationDataHeader : String = "year, month, day, hour, min, sec, ms, latitude, longitude\n"
@@ -95,7 +98,15 @@ class BackGroundCollecting: Service() {
     var mode : String = ""
     lateinit var cw : CSVWrite
 
+    // to keep service alive
+    lateinit var serviceIntent : Intent
+    lateinit var restartIntent : Intent
+    var isBackgroundServiceAlive : Boolean = false
+    lateinit var sender : PendingIntent
+    lateinit var ac : AlarmManager.AlarmClockInfo
+    lateinit var am : AlarmManager
 
+    // when binding service
     private val binder = object : IMyAidlInterface.Stub() {
         override fun getRemainingTime() : Int {
             return remaining
@@ -111,11 +122,10 @@ class BackGroundCollecting: Service() {
     }
 
     override fun onCreate() {
-//        Log.d(TAG, "onCreate()")
+        Log.d(TAG, "onCreate()")
         super.onCreate()
 
         // data write
-        date = currentDate()
         cw = CSVWrite()
 
         // sensors
@@ -155,7 +165,7 @@ class BackGroundCollecting: Service() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(baseContext)
         locationRequest = LocationRequest.create()
             .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-            .setInterval((1000/SENSOR_FREQUENCY).toLong())
+            .setInterval(LOCATION_INTERVAL.toLong())
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
@@ -181,11 +191,75 @@ class BackGroundCollecting: Service() {
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
         Log.d(TAG, fusedLocationClient.toString())
 
+        // for keeping BackGroundCollecting(Service) alive
+        val pm = applicationContext.getSystemService(POWER_SERVICE) as PowerManager
+        var isWhiteListing = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            isWhiteListing = pm.isIgnoringBatteryOptimizations(applicationContext.packageName)
+        }
+        if (!isWhiteListing) {
+            val intent = Intent()
+            intent.action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+            intent.data = Uri.parse("package:" + applicationContext.packageName)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+        }
+
+        restartIntent = Intent(this, RestartService::class.java)
+
+        isBackgroundServiceAlive = true
+
+
+    }
+
+    fun setAlarm() {
+        Log.d(TAG, "setAlarm()")
+        val restart = getInstance()
+        restart.timeInMillis = System.currentTimeMillis()
+        restart.add(MILLISECOND, 16)
+
+        restartIntent = Intent(this, AlarmReceiver::class.java).apply {
+            putExtra("isFirstCollecting", false)
+            putExtra("date", date)
+            putExtra("mode", mode)
+            putExtra("remaining", remaining)
+        }
+        sender = PendingIntent.getBroadcast(this, 0, restartIntent, 0)
+        am = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        am.set(AlarmManager.RTC_WAKEUP, restart.timeInMillis, sender)
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "onStartCommand()")
+
+        isFirstCollecting = intent?.getStringExtra("isFirstCollecting") as Boolean
+
+        if (isFirstCollecting) {
+            isFirstCollecting = false
+            cw.createCsv(sensorDataHeader, "$date $mode", "sensorData")
+            cw.createCsv(locationDataHeader, "$date $mode", "GPSData")
+            date = currentDate()
+        } else {
+            date = intent?.extras?.get("date") as String
+            mode = intent?.extras?.get("mode") as String
+            remaining = intent?.extras?.get("remaining") as Int
+        }
+
+        collectingThread = CollectingThread()
+        collectingThread.priority = Thread.MAX_PRIORITY
+        collectingThread.start()
+
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
-//        Log.d(TAG, "onDestroy()")
+        Log.d(TAG, "onDestroy()")
         super.onDestroy()
+
+        isBackgroundServiceAlive = false
+
+        setAlarm()
+        Thread.currentThread().interrupt()
 
         // stop sensor listener
         sensorManager.unregisterListener(gravityListener)
@@ -196,11 +270,22 @@ class BackGroundCollecting: Service() {
         sensorManager.unregisterListener(heartRateListener)
 
         // stop location listener
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+//        fusedLocationClient.removeLocationUpdates(locationCallback)
 
         // write data as .csv
 //        cw.writeCsv(sensorData, "SensorData")
 //        cw.writeCsv(locationData, "GPSData")
+    }
+
+    fun setAlarmTimer() {
+        var c : Calendar = Calendar.getInstance().apply {
+            timeInMillis = System.currentTimeMillis()
+            add(Calendar.SECOND, 1)
+        }
+    }
+
+    override fun onRebind(intent: Intent?) {
+        super.onRebind(intent)
     }
 
     fun getMainData() {
@@ -215,25 +300,7 @@ class BackGroundCollecting: Service() {
         locationData += dataCollectedDate() + "$latitude, $longitude\n"
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-//        Log.d(TAG, "onStartCommand()")
 
-        if (intent != null) {
-            mode = intent.extras?.get("mode") as String
-//            Log.d(TAG, "mode: $mode")
-        }
-        cw.createCsv(sensorDataHeader, "$date $mode", "sensorData")
-        cw.createCsv(locationDataHeader, "$date $mode", "GPSData")
-
-//        getMainData()
-//        getLocationData()
-        // TODO()
-        collectingThread = CollectingThread()
-        collectingThread.priority = Thread.MAX_PRIORITY
-        collectingThread.start()
-
-        return super.onStartCommand(intent, flags, startId)
-    }
 
     inner class GravityListener : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent?) {
